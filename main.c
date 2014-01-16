@@ -1,3 +1,12 @@
+/*
+	- create static layer, and two layers in array?
+	- one pushed layer, one pusher layer
+	- load all bitmaps first?  then point layer at appropriate bitmap
+	- change bitmap when time changes
+	- reparent digit layers to static, pushed and pusher layers
+*/
+
+
 #include <pebble.h>
 
 
@@ -36,7 +45,6 @@ const int TimeCharY[TimeCharCount] = {
 	72
 };
 
-
 static Window *mainWindow;
 static GBitmap *images[TimeCharCount];
 static BitmapLayer *imageLayers[TimeCharCount];
@@ -51,7 +59,7 @@ static int digitSlotState[DigitSlotCount] = {
 static void unloadDigit(
 	int slotIndex)
 {
-	if (digitSlotState[slotIndex] != EmptySlot) {
+	if (digitSlotState[slotIndex] != EmptySlot || slotIndex == TimeCharCount) {
 		layer_remove_from_parent(bitmap_layer_get_layer(imageLayers[slotIndex]));
 		bitmap_layer_destroy(imageLayers[slotIndex]);
 		gbitmap_destroy(images[slotIndex]);
@@ -104,26 +112,6 @@ static void loadDigit(
 	digitSlotState[slotIndex] = digit;
 
 	loadImage(slotIndex, ImageResourceIDs[digit]);
-
-//	images[slotIndex] = gbitmap_create_with_resource(ImageResourceIDs[digit]);
-//
-//	GRect frame = (GRect) {
-//		.origin = {
-//			TimeCharX[slotIndex],
-//			TimeCharY[slotIndex]
-//		},
-//		.size = images[slotIndex]->bounds.size
-//	};
-//
-//	BitmapLayer *digitLayer = bitmap_layer_create(frame);
-//	imageLayers[slotIndex] = digitLayer;
-//
-//		// load the image into the layer
-//	bitmap_layer_set_bitmap(digitLayer, images[slotIndex]);
-//
-//		// add the layer to the window
-//	Layer *windowLayer = window_get_root_layer(mainWindow);
-//	layer_add_child(windowLayer, bitmap_layer_get_layer(digitLayer));
 }
 
 
@@ -142,6 +130,9 @@ static void displayValue(
 
 		if (!((value == 0) && (col == 0) && !showLeadingZero)) {
 			loadDigit(slotIndex, value % 10);
+		} else {
+				// remove the leading digit, since this is a single-digit hour
+			unloadDigit(slotIndex);
 		}
 
 		value /= 10;
@@ -203,6 +194,10 @@ void init(void)
 
 void deinit(void)
 {
+	for (int i = 0; i < TimeCharCount; i++) {
+		unloadDigit(i);
+	}
+
 	tick_timer_service_unsubscribe();
 	window_destroy(mainWindow);
 }

@@ -11,8 +11,10 @@
 
 
 #define ImageCount 11
+#define ColonImageIndex 10
 #define TimeCharCount 5
 #define DigitSlotCount 4
+#define DigitLayerCount 5
 #define EmptySlot -1
 #define DigitY 65
 
@@ -45,48 +47,55 @@ const int TimeCharY[TimeCharCount] = {
 	72
 };
 
+
 static Window *mainWindow;
 static GBitmap *images[TimeCharCount];
+static GBitmap *gImages[ImageCount];
 static BitmapLayer *imageLayers[TimeCharCount];
-static int digitSlotState[DigitSlotCount] = {
-	EmptySlot,
-	EmptySlot,
-	EmptySlot,
-	EmptySlot
-};
+//static BitmapLayer *gMovingLayers[2];
+//static BitmapLayer *gDigitLayers[TimeLayerCount];
+//static BitmapLayer *gDigitLayers[DigitLayerCount];
 
 
 static void unloadDigit(
 	int slotIndex)
 {
-	if (digitSlotState[slotIndex] != EmptySlot || slotIndex == TimeCharCount) {
+	if (imageLayers[slotIndex]) {
 		layer_remove_from_parent(bitmap_layer_get_layer(imageLayers[slotIndex]));
 		bitmap_layer_destroy(imageLayers[slotIndex]);
-		gbitmap_destroy(images[slotIndex]);
-		digitSlotState[slotIndex] = EmptySlot;
+		imageLayers[slotIndex] = NULL;
 	}
 }
 
 
-static void loadImage(
-	int slotIndex,
-	int resourceID)
+static BitmapLayer* createBitmapLayer(
+	int inImageIndex,
+	int inX,
+	int inY)
 {
-	images[slotIndex] = gbitmap_create_with_resource(resourceID);
-
 	GRect frame = (GRect) {
 		.origin = {
-			TimeCharX[slotIndex],
-			TimeCharY[slotIndex]
+			inX,
+			inY
 		},
-		.size = images[slotIndex]->bounds.size
+		.size = gImages[inImageIndex]->bounds.size
 	};
 
-	BitmapLayer *digitLayer = bitmap_layer_create(frame);
-	imageLayers[slotIndex] = digitLayer;
+	BitmapLayer *layer = bitmap_layer_create(frame);
 
 		// load the image into the layer
-	bitmap_layer_set_bitmap(digitLayer, images[slotIndex]);
+	bitmap_layer_set_bitmap(layer, gImages[inImageIndex]);
+
+	return layer;
+}
+
+
+static void loadImage(
+	int inImageIndex,
+	int slotIndex)
+{
+	BitmapLayer *digitLayer = createBitmapLayer(inImageIndex, TimeCharX[slotIndex], TimeCharY[slotIndex]);
+	imageLayers[slotIndex] = digitLayer;
 
 		// add the layer to the window
 	Layer *windowLayer = window_get_root_layer(mainWindow);
@@ -109,9 +118,7 @@ static void loadDigit(
 	unloadDigit(slotIndex);
 
 		// load the bitmap for the digit
-	digitSlotState[slotIndex] = digit;
-
-	loadImage(slotIndex, ImageResourceIDs[digit]);
+	loadImage(digit, slotIndex);
 }
 
 
@@ -180,8 +187,17 @@ void init(void)
 	window_stack_push(mainWindow, true);
 	window_set_background_color(mainWindow, GColorBlack);
 
+		// preload all the images
+	for (int i = 0; i < ImageCount; i++) {
+		gImages[i] = gbitmap_create_with_resource(ImageResourceIDs[i]);
+	}
+
+//	for (int i = 0; i < DigitLayerCount; i++) {
+//		gDigitLayers[i] = gbitmap_create_with_resource(ImageResourceIDs[i]);
+//	}
+
 		// load the colon image
-	loadImage(4, ImageResourceIDs[10]);
+	loadImage(ColonImageIndex, 4);
 
 		// Avoids a blank screen on watch start.
 	time_t now = time(NULL);
@@ -196,6 +212,10 @@ void deinit(void)
 {
 	for (int i = 0; i < TimeCharCount; i++) {
 		unloadDigit(i);
+	}
+
+	for (int i = 0; i < ImageCount; i++) {
+		gbitmap_destroy(gImages[i]);
 	}
 
 	tick_timer_service_unsubscribe();

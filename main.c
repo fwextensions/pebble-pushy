@@ -12,13 +12,15 @@
 
 #define ImageCount 11
 #define ColonImageIndex 10
+#define ColonLayerIndex 4
 #define TimeCharCount 5
-#define DigitSlotCount 4
+#define DigitCount 4
 #define DigitLayerCount 5
 #define EmptySlot -1
 #define DigitY 65
 #define DigitW 30
 #define DigitH 38
+#define LayerContainerW 144
 
 
 const int ImageResourceIDs[ImageCount] = {
@@ -64,25 +66,26 @@ const int TimeCharH[TimeCharCount] = {
 };
 
 
-static Window *mainWindow;
-static GBitmap *gImages[ImageCount];
-static BitmapLayer *gDigitLayers[DigitLayerCount];
+typedef struct {
+	Layer* layer;
+	BitmapLayer* digits[DigitCount];
+} Container;
 
 
-static void unloadDigit(
-	int slotIndex)
-{
-	if (gDigitLayers[slotIndex]) {
-		bitmap_layer_set_bitmap(gDigitLayers[slotIndex], NULL);
-	}
-}
+static Window* gMainWindow;
+static GBitmap* gImages[ImageCount];
+static BitmapLayer* gDigitLayers[DigitLayerCount];
+static BitmapLayer* gColonLayer;
+static Container gMovingContainers[2];
+static Container gStaticContainer;
 
 
 static BitmapLayer* createBitmapLayer(
 	int inX,
 	int inY,
 	int inWidth,
-	int inHeight)
+	int inHeight,
+	Layer* inParent)
 {
 	GRect frame = (GRect) {
 		.origin = {
@@ -96,28 +99,70 @@ static BitmapLayer* createBitmapLayer(
 	};
 
 		// create the layer and add it to the window
-	BitmapLayer *layer = bitmap_layer_create(frame);
-	Layer *windowLayer = window_get_root_layer(mainWindow);
-	layer_add_child(windowLayer, bitmap_layer_get_layer(layer));
+	BitmapLayer* layer = bitmap_layer_create(frame);
+	layer_add_child(inParent, bitmap_layer_get_layer(layer));
 
 	return layer;
 }
 
 
-static void loadDigit(
+static void createContainer(
+	Container* ioContainer)
+{
+	GRect frame = (GRect) {
+		.origin = {
+			0,
+			DigitY
+		},
+		.size = {
+			LayerContainerW,
+			DigitH
+		}
+	};
+
+	ioContainer->layer = layer_create(frame);
+
+	layer_add_child(window_get_root_layer(gMainWindow), ioContainer->layer);
+
+	for (int i = 0; i < DigitCount; i++) {
+			// all the digits should be aligned at the top of the container, so
+			// don't use TimeCharY, just 0
+		ioContainer->digits[i] = createBitmapLayer(TimeCharX[i], 0,
+			TimeCharW[i], TimeCharH[i], ioContainer->layer);
+	}
+}
+
+
+static void destroyContainer(
+	Container* inContainer)
+{
+	layer_remove_from_parent(inContainer->layer);
+
+	for (int i = 0; i < DigitCount; i++) {
+		layer_remove_from_parent(bitmap_layer_get_layer(inContainer->digits[i]));
+		bitmap_layer_destroy(inContainer->digits[i]);
+		inContainer->digits[i] = NULL;
+	}
+}
+
+
+static void setContainerDigit(
+	Container* inContainer,
 	int slotIndex,
 	int digit)
 {
-	if ((slotIndex < 0) || (slotIndex >= DigitSlotCount)) {
+	GBitmap* image = NULL;
+
+	if ((slotIndex < 0) || (slotIndex >= DigitCount)) {
 		return;
 	}
 
-	if ((digit < 0) || (digit > 9)) {
-		return;
+	if (digit >= 0 && digit <= 9) {
+		image = gImages[digit];
 	}
 
 		// load the image into the layer
-	bitmap_layer_set_bitmap(gDigitLayers[slotIndex], gImages[digit]);
+	bitmap_layer_set_bitmap(inContainer->digits[slotIndex], image);
 }
 
 
@@ -132,14 +177,15 @@ static void displayValue(
 	// (We process the columns in reverse order because that makes
 	// extracting the digits from the value easier.)
 	for (int col = 1; col >= 0; col--) {
+			// default to -1 to hide the digit if it's a leading 0
+		int digit = -1;
 		int slotIndex = (group * 2) + col;
 
 		if (!((value == 0) && (col == 0) && !showLeadingZero)) {
-			loadDigit(slotIndex, value % 10);
-		} else {
-				// remove the leading digit, since this is a single-digit hour
-			unloadDigit(slotIndex);
+			digit = value % 10;
 		}
+
+		setContainerDigit(&gStaticContainer, slotIndex, digit);
 
 		value /= 10;
 	}
@@ -178,21 +224,22 @@ static void onTick(
 
 void init(void)
 {
-	mainWindow = window_create();
-	window_stack_push(mainWindow, true);
-	window_set_background_color(mainWindow, GColorBlack);
+	gMainWindow = window_create();
+	window_stack_push(gMainWindow, true);
+	window_set_background_color(gMainWindow, GColorBlack);
 
 		// preload all the images
 	for (int i = 0; i < ImageCount; i++) {
 		gImages[i] = gbitmap_create_with_resource(ImageResourceIDs[i]);
 	}
 
-	for (int i = 0; i < DigitLayerCount; i++) {
-		gDigitLayers[i] = createBitmapLayer(TimeCharX[i], TimeCharY[i], TimeCharW[i], TimeCharH[i]);
-	}
+	createContainer(&gStaticContainer);
 
 		// load the colon image
-	bitmap_layer_set_bitmap(gDigitLayers[4], gImages[ColonImageIndex]);
+	gColonLayer = createBitmapLayer(TimeCharX[ColonLayerIndex],
+		TimeCharY[ColonLayerIndex], TimeCharW[ColonLayerIndex], TimeCharH[ColonLayerIndex],
+		window_get_root_layer(gMainWindow));
+	bitmap_layer_set_bitmap(gColonLayer, gImages[ColonImageIndex]);
 
 		// Avoids a blank screen on watch start.
 	time_t now = time(NULL);
@@ -205,17 +252,17 @@ void init(void)
 
 void deinit(void)
 {
-	for (int i = 0; i < DigitLayerCount; i++) {
-		layer_remove_from_parent(bitmap_layer_get_layer(gDigitLayers[i]));
-		bitmap_layer_destroy(gDigitLayers[i]);
-	}
+	layer_remove_from_parent(bitmap_layer_get_layer(gColonLayer));
+	bitmap_layer_destroy(gColonLayer);
+
+	destroyContainer(&gStaticContainer);
 
 	for (int i = 0; i < ImageCount; i++) {
 		gbitmap_destroy(gImages[i]);
 	}
 
 	tick_timer_service_unsubscribe();
-	window_destroy(mainWindow);
+	window_destroy(gMainWindow);
 }
 
 

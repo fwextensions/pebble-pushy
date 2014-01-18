@@ -1,12 +1,3 @@
-/*
-	- create static layer, and two layers in array?
-	- one pushed layer, one pusher layer
-	- load all bitmaps first?  then point layer at appropriate bitmap
-	- change bitmap when time changes
-	- reparent digit layers to static, pushed and pusher layers
-*/
-
-
 #include <pebble.h>
 
 
@@ -21,6 +12,14 @@
 #define DigitW 30
 #define DigitH 38
 #define LayerContainerW 144
+#define ContainerSpacing 7
+#define PusherStartY DigitY + DigitH + ContainerSpacing
+#define PusheeFinishY DigitY - DigitH - ContainerSpacing
+#define AnimationMS 60 * 1000
+
+	// This works around the inability to use the current GRect macro
+	// for constants.
+#define ConstantGRect(x, y, w, h) {{(x), (y)}, {(w), (h)}}
 
 
 const int ImageResourceIDs[ImageCount] = {
@@ -66,6 +65,11 @@ const int TimeCharH[TimeCharCount] = {
 };
 
 
+GRect PusherStartFrame = ConstantGRect(0, PusherStartY, LayerContainerW, DigitH);
+GRect PusherEndFrame = ConstantGRect(0, DigitY, LayerContainerW, DigitH);
+GRect PusheeEndFrame = ConstantGRect(0, PusheeFinishY, LayerContainerW, DigitH);
+
+
 typedef struct {
 	Layer* layer;
 	BitmapLayer* digits[DigitCount];
@@ -74,10 +78,11 @@ typedef struct {
 
 static Window* gMainWindow;
 static GBitmap* gImages[ImageCount];
-static BitmapLayer* gDigitLayers[DigitLayerCount];
 static BitmapLayer* gColonLayer;
 static Container gMovingContainers[2];
 static Container gStaticContainer;
+static PropertyAnimation* gPusherAnimation;
+static PropertyAnimation* gPusheeAnimation;
 
 
 static BitmapLayer* createBitmapLayer(
@@ -121,7 +126,6 @@ static void createContainer(
 	};
 
 	ioContainer->layer = layer_create(frame);
-
 	layer_add_child(window_get_root_layer(gMainWindow), ioContainer->layer);
 
 	for (int i = 0; i < DigitCount; i++) {
@@ -209,8 +213,16 @@ static unsigned short getDisplayHour(
 static void displayTime(
 	struct tm *tickTime)
 {
+	unsigned short minutes = tickTime->tm_min;
+
 	displayValue(getDisplayHour(tickTime->tm_hour), 0, false);
-	displayValue(tickTime->tm_min, 1, true);
+
+	setContainerDigit(&gStaticContainer, 2, minutes / 10);
+	setContainerDigit(&gMovingContainers[0], 3, minutes % 10);
+	setContainerDigit(&gMovingContainers[1], 3, (minutes + 1) % 10);
+
+	animation_schedule((Animation*) gPusherAnimation);
+	animation_schedule((Animation*) gPusheeAnimation);
 }
 
 
@@ -219,6 +231,20 @@ static void onTick(
 	TimeUnits unitsChanged)
 {
 	displayTime(tickTime);
+}
+
+
+void initAnimations(void)
+{
+	gPusherAnimation = property_animation_create_layer_frame(gMovingContainers[1].layer,
+		&PusherStartFrame, &PusherEndFrame);
+	animation_set_duration((Animation*) gPusherAnimation, AnimationMS);
+	animation_set_curve((Animation*) gPusherAnimation, AnimationCurveLinear);
+
+	gPusheeAnimation = property_animation_create_layer_frame(gMovingContainers[0].layer,
+		&PusherEndFrame, &PusheeEndFrame);
+	animation_set_duration((Animation*) gPusheeAnimation, AnimationMS);
+	animation_set_curve((Animation*) gPusheeAnimation, AnimationCurveLinear);
 }
 
 
@@ -234,6 +260,10 @@ void init(void)
 	}
 
 	createContainer(&gStaticContainer);
+	createContainer(&gMovingContainers[0]);
+	createContainer(&gMovingContainers[1]);
+
+	initAnimations();
 
 		// load the colon image
 	gColonLayer = createBitmapLayer(TimeCharX[ColonLayerIndex],
@@ -256,6 +286,11 @@ void deinit(void)
 	bitmap_layer_destroy(gColonLayer);
 
 	destroyContainer(&gStaticContainer);
+	destroyContainer(&gMovingContainers[0]);
+	destroyContainer(&gMovingContainers[1]);
+
+	property_animation_destroy(gPusherAnimation);
+	property_animation_destroy(gPusheeAnimation);
 
 	for (int i = 0; i < ImageCount; i++) {
 		gbitmap_destroy(gImages[i]);

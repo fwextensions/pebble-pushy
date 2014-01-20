@@ -79,7 +79,8 @@ typedef struct {
 static Window* gMainWindow;
 static GBitmap* gImages[ImageCount];
 static BitmapLayer* gColonLayer;
-static Container gMovingContainers[2];
+static Container gPusherContainer;
+static Container gPusheeContainer;
 static Container gStaticContainer;
 static PropertyAnimation* gPusherAnimation;
 static PropertyAnimation* gPusheeAnimation;
@@ -170,32 +171,6 @@ static void setContainerDigit(
 }
 
 
-static void displayValue(
-	unsigned short value,
-	unsigned short group,
-	bool showLeadingZero)
-{
-	value = value % 100; // Maximum of two digits per row.
-
-	// Column order is: | Column 0 | Column 1 |
-	// (We process the columns in reverse order because that makes
-	// extracting the digits from the value easier.)
-	for (int col = 1; col >= 0; col--) {
-			// default to -1 to hide the digit if it's a leading 0
-		int digit = -1;
-		int slotIndex = (group * 2) + col;
-
-		if (!((value == 0) && (col == 0) && !showLeadingZero)) {
-			digit = value % 10;
-		}
-
-		setContainerDigit(&gStaticContainer, slotIndex, digit);
-
-		value /= 10;
-	}
-}
-
-
 static unsigned short getDisplayHour(
 	unsigned short hour)
 {
@@ -211,18 +186,58 @@ static unsigned short getDisplayHour(
 
 
 static void displayTime(
-	struct tm *tickTime)
+	struct tm *tickTime,
+	bool inInit)
 {
 	unsigned short minutes = tickTime->tm_min;
+	unsigned short hours = getDisplayHour(tickTime->tm_hour);
+	unsigned short onesMinutes = minutes % 10;
+	unsigned short tensMinutes = minutes / 10;
+	unsigned short pusherOnesMinutes = (minutes + 1) % 10;
+// this should be calculated based on (minutes + 1) / 10
+	unsigned short pusherTensMinutes = (tensMinutes + 1) % 6;
+	unsigned short onesHours = hours % 10;
+	unsigned short tensHours = hours / 10;
+	unsigned short pusherOnesHours = (hours + 1) % 10;
+	unsigned short pusherTensHours = (tensHours + 1) % 3;
 
-	displayValue(getDisplayHour(tickTime->tm_hour), 0, false);
+	setContainerDigit(&gPusheeContainer, 3, onesMinutes);
+	setContainerDigit(&gPusherContainer, 3, pusherOnesMinutes);
 
-	setContainerDigit(&gStaticContainer, 2, minutes / 10);
-	setContainerDigit(&gMovingContainers[0], 3, minutes % 10);
-	setContainerDigit(&gMovingContainers[1], 3, (minutes + 1) % 10);
+	setContainerDigit(&gPusheeContainer, 2, -1);
+	setContainerDigit(&gPusherContainer, 2, -1);
+	setContainerDigit(&gStaticContainer, 2, tensMinutes);
 
-	animation_schedule((Animation*) gPusherAnimation);
-	animation_schedule((Animation*) gPusheeAnimation);
+	setContainerDigit(&gPusheeContainer, 1, -1);
+	setContainerDigit(&gPusherContainer, 1, -1);
+	setContainerDigit(&gStaticContainer, 1, onesHours);
+
+	setContainerDigit(&gPusheeContainer, 0, -1);
+	setContainerDigit(&gPusherContainer, 0, -1);
+	setContainerDigit(&gStaticContainer, 0, tensHours == 0 ? -1 : tensHours);
+
+	if (pusherOnesMinutes == 0) {
+		setContainerDigit(&gPusheeContainer, 2, tensMinutes);
+		setContainerDigit(&gPusherContainer, 2, pusherTensMinutes);
+		setContainerDigit(&gStaticContainer, 2, -1);
+
+		if (pusherTensMinutes == 0) {
+			setContainerDigit(&gPusheeContainer, 1, onesHours);
+			setContainerDigit(&gPusherContainer, 1, pusherOnesHours);
+			setContainerDigit(&gStaticContainer, 1, -1);
+
+			if (pusherOnesHours == 0) {
+				setContainerDigit(&gPusheeContainer, 0, -1);
+				setContainerDigit(&gPusherContainer, 0, pusherTensHours);
+				setContainerDigit(&gStaticContainer, 0, -1);
+			}
+		}
+	}
+
+	if (!inInit) {
+		animation_schedule((Animation*) gPusherAnimation);
+		animation_schedule((Animation*) gPusheeAnimation);
+	}
 }
 
 
@@ -230,18 +245,18 @@ static void onTick(
 	struct tm *tickTime,
 	TimeUnits unitsChanged)
 {
-	displayTime(tickTime);
+	displayTime(tickTime, false);
 }
 
 
 void initAnimations(void)
 {
-	gPusherAnimation = property_animation_create_layer_frame(gMovingContainers[1].layer,
+	gPusherAnimation = property_animation_create_layer_frame(gPusherContainer.layer,
 		&PusherStartFrame, &PusherEndFrame);
 	animation_set_duration((Animation*) gPusherAnimation, AnimationMS);
 	animation_set_curve((Animation*) gPusherAnimation, AnimationCurveLinear);
 
-	gPusheeAnimation = property_animation_create_layer_frame(gMovingContainers[0].layer,
+	gPusheeAnimation = property_animation_create_layer_frame(gPusheeContainer.layer,
 		&PusherEndFrame, &PusheeEndFrame);
 	animation_set_duration((Animation*) gPusheeAnimation, AnimationMS);
 	animation_set_curve((Animation*) gPusheeAnimation, AnimationCurveLinear);
@@ -260,8 +275,8 @@ void init(void)
 	}
 
 	createContainer(&gStaticContainer);
-	createContainer(&gMovingContainers[0]);
-	createContainer(&gMovingContainers[1]);
+	createContainer(&gPusherContainer);
+	createContainer(&gPusheeContainer);
 
 	initAnimations();
 
@@ -274,7 +289,7 @@ void init(void)
 		// Avoids a blank screen on watch start.
 	time_t now = time(NULL);
 	struct tm *tickTime = localtime(&now);
-	displayTime(tickTime);
+	displayTime(tickTime, true);
 
 	tick_timer_service_subscribe(MINUTE_UNIT, onTick);
 }
@@ -286,8 +301,8 @@ void deinit(void)
 	bitmap_layer_destroy(gColonLayer);
 
 	destroyContainer(&gStaticContainer);
-	destroyContainer(&gMovingContainers[0]);
-	destroyContainer(&gMovingContainers[1]);
+	destroyContainer(&gPusherContainer);
+	destroyContainer(&gPusheeContainer);
 
 	property_animation_destroy(gPusherAnimation);
 	property_animation_destroy(gPusheeAnimation);

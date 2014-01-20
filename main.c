@@ -1,3 +1,14 @@
+/*
+	- don't display the pusher digit if seconds != 00
+	- maybe have a gradient overlay on top and bottom
+	- show date somehow, maybe on tap
+	- clean up digit bitmaps, especially 4
+	- move 1 back into center of bitmap
+	- combine pusher and pushee into one container and just animate that
+		container
+*/
+
+
 #include <pebble.h>
 
 
@@ -6,8 +17,6 @@
 #define ColonLayerIndex 4
 #define TimeCharCount 5
 #define DigitCount 4
-#define DigitLayerCount 5
-#define EmptySlot -1
 #define DigitY 65
 #define DigitW 30
 #define DigitH 38
@@ -171,6 +180,18 @@ static void setContainerDigit(
 }
 
 
+static void setDigit(
+	int inSlotIndex,
+	int inDigit1,
+	int inDigit2,
+	int inDigit3)
+{
+	setContainerDigit(&gPusheeContainer, inSlotIndex, inDigit1);
+	setContainerDigit(&gPusherContainer, inSlotIndex, inDigit2);
+	setContainerDigit(&gStaticContainer, inSlotIndex, inDigit3);
+}
+
+
 static unsigned short getDisplayHour(
 	unsigned short hour)
 {
@@ -193,43 +214,33 @@ static void displayTime(
 	unsigned short hours = getDisplayHour(tickTime->tm_hour);
 	unsigned short onesMinutes = minutes % 10;
 	unsigned short tensMinutes = minutes / 10;
-	unsigned short pusherOnesMinutes = (minutes + 1) % 10;
-// this should be calculated based on (minutes + 1) / 10
-	unsigned short pusherTensMinutes = (tensMinutes + 1) % 6;
 	unsigned short onesHours = hours % 10;
 	unsigned short tensHours = hours / 10;
-	unsigned short pusherOnesHours = (hours + 1) % 10;
-	unsigned short pusherTensHours = (tensHours + 1) % 3;
+
+	unsigned short pusherMinutes = (minutes + 1) % 60;
+	unsigned short pusherHours = getDisplayHour(hours + 1);
+	unsigned short pusherOnesMinutes = pusherMinutes % 10;
+	unsigned short pusherTensMinutes = pusherMinutes / 10 ;
+	unsigned short pusherOnesHours = pusherHours % 10;
+	unsigned short pusherTensHours = pusherHours / 10;
 
 	setContainerDigit(&gPusheeContainer, 3, onesMinutes);
 	setContainerDigit(&gPusherContainer, 3, pusherOnesMinutes);
 
-	setContainerDigit(&gPusheeContainer, 2, -1);
-	setContainerDigit(&gPusherContainer, 2, -1);
-	setContainerDigit(&gStaticContainer, 2, tensMinutes);
-
-	setContainerDigit(&gPusheeContainer, 1, -1);
-	setContainerDigit(&gPusherContainer, 1, -1);
-	setContainerDigit(&gStaticContainer, 1, onesHours);
-
-	setContainerDigit(&gPusheeContainer, 0, -1);
-	setContainerDigit(&gPusherContainer, 0, -1);
-	setContainerDigit(&gStaticContainer, 0, tensHours == 0 ? -1 : tensHours);
+	setDigit(2, -1, -1, tensMinutes);
+	setDigit(1, -1, -1, onesHours);
+	setDigit(0, -1, -1, tensHours == 0 ? -1 : tensHours);
 
 	if (pusherOnesMinutes == 0) {
-		setContainerDigit(&gPusheeContainer, 2, tensMinutes);
-		setContainerDigit(&gPusherContainer, 2, pusherTensMinutes);
-		setContainerDigit(&gStaticContainer, 2, -1);
+		setDigit(2, tensMinutes, pusherTensMinutes, -1);
 
 		if (pusherTensMinutes == 0) {
-			setContainerDigit(&gPusheeContainer, 1, onesHours);
-			setContainerDigit(&gPusherContainer, 1, pusherOnesHours);
-			setContainerDigit(&gStaticContainer, 1, -1);
+			setDigit(1, onesHours, pusherOnesHours, -1);
 
 			if (pusherOnesHours == 0) {
-				setContainerDigit(&gPusheeContainer, 0, -1);
-				setContainerDigit(&gPusherContainer, 0, pusherTensHours);
-				setContainerDigit(&gStaticContainer, 0, -1);
+				setDigit(0, -1, pusherTensHours, -1);
+			} else if (pusherTensHours == 0) {
+				setDigit(0, tensHours, -1, -1);
 			}
 		}
 	}

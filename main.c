@@ -239,7 +239,9 @@ static void displayTime(
 
 			if (pusherOnesHours == 0) {
 				setDigit(0, -1, pusherTensHours, -1);
-			} else if (pusherTensHours == 0) {
+			} else if (pusherTensHours == 0 && tensHours == 1) {
+					// when flipping from 12:59 to 1:00, we want to push the 1
+					// off with a blank space in the pusher
 				setDigit(0, tensHours, -1, -1);
 			}
 		}

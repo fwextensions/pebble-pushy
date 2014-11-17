@@ -1,0 +1,75 @@
+{
+    "appKeys": {},
+    "capabilities": [
+        ""
+    ],
+    "companyName": "john_dunning@yahoo.com",
+    "longName": "Pushy",
+    "projectType": "native",
+    "resources": {
+        "media": [
+            {
+                "file": "images/0.png",
+                "name": "RESOURCE_ID_Img_0",
+                "type": "png"
+            },
+            {
+                "file": "images/1.png",
+                "name": "RESOURCE_ID_Img_1",
+                "type": "png"
+            },
+            {
+                "file": "images/2.png",
+                "name": "RESOURCE_ID_Img_2",
+                "type": "png"
+            },
+            {
+                "file": "images/3.png",
+                "name": "RESOURCE_ID_Img_3",
+                "type": "png"
+            },
+            {
+                "file": "images/4.png",
+                "name": "RESOURCE_ID_Img_4",
+                "type": "png"
+            },
+            {
+                "file": "images/5.png",
+                "name": "RESOURCE_ID_Img_5",
+                "type": "png"
+            },
+            {
+                "file": "images/6.png",
+                "name": "RESOURCE_ID_Img_6",
+                "type": "png"
+            },
+            {
+                "file": "images/7.png",
+                "name": "RESOURCE_ID_Img_7",
+                "type": "png"
+            },
+            {
+                "file": "images/8.png",
+                "name": "RESOURCE_ID_Img_8",
+                "type": "png"
+            },
+            {
+                "file": "images/9.png",
+                "name": "RESOURCE_ID_Img_9",
+                "type": "png"
+            },
+            {
+                "file": "images/colon.png",
+                "name": "RESOURCE_ID_Img_Colon",
+                "type": "png"
+            }
+        ]
+    },
+    "shortName": "Pushy",
+    "uuid": "11b6e262-12da-4e1a-b4ed-933c760d4ae2",
+    "versionCode": 1,
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": true
+    }
+}

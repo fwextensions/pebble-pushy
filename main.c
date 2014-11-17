@@ -22,8 +22,9 @@
 #define DigitH 38
 #define LayerContainerW 144
 #define ContainerSpacing 7
-#define PusherStartY DigitY + DigitH + ContainerSpacing
+#define PusherStartY DigitH + ContainerSpacing
 #define PusheeFinishY DigitY - DigitH - ContainerSpacing
+#define MovingLayerH 2 * DigitH + ContainerSpacing
 #define AnimationMS 60 * 1000
 
 	// This works around the inability to use the current GRect macro
@@ -74,9 +75,11 @@ const int TimeCharH[TimeCharCount] = {
 };
 
 
-GRect PusherStartFrame = ConstantGRect(0, PusherStartY, LayerContainerW, DigitH);
-GRect PusherEndFrame = ConstantGRect(0, DigitY, LayerContainerW, DigitH);
-GRect PusheeEndFrame = ConstantGRect(0, PusheeFinishY, LayerContainerW, DigitH);
+GRect StaticFrame = ConstantGRect(0, DigitY, LayerContainerW, DigitH);
+GRect PusheeFrame = ConstantGRect(0, 0, LayerContainerW, DigitH);
+GRect PusherFrame = ConstantGRect(0, PusherStartY, LayerContainerW, DigitH);
+GRect PusherStartFrame = ConstantGRect(0, DigitY, LayerContainerW, MovingLayerH);
+GRect PusherEndFrame = ConstantGRect(0, PusheeFinishY, LayerContainerW, MovingLayerH);
 
 
 typedef struct {
@@ -88,11 +91,11 @@ typedef struct {
 static Window* gMainWindow;
 static GBitmap* gImages[ImageCount];
 static BitmapLayer* gColonLayer;
+static Layer* gMovingLayer;
 static Container gPusherContainer;
 static Container gPusheeContainer;
 static Container gStaticContainer;
 static PropertyAnimation* gPusherAnimation;
-static PropertyAnimation* gPusheeAnimation;
 
 
 static BitmapLayer* createBitmapLayer(
@@ -116,13 +119,16 @@ static BitmapLayer* createBitmapLayer(
 		// create the layer and add it to the window
 	BitmapLayer* layer = bitmap_layer_create(frame);
 	layer_add_child(inParent, bitmap_layer_get_layer(layer));
+	bitmap_layer_set_background_color(bitmap_layer_get_layer(layer), GColorWhite);
 
 	return layer;
 }
 
 
 static void createContainer(
-	Container* ioContainer)
+	Container* ioContainer,
+	GRect* inFrame,
+	Layer* inParent)
 {
 	GRect frame = (GRect) {
 		.origin = {
@@ -135,8 +141,13 @@ static void createContainer(
 		}
 	};
 
-	ioContainer->layer = layer_create(frame);
-	layer_add_child(window_get_root_layer(gMainWindow), ioContainer->layer);
+	ioContainer->layer = layer_create(*inFrame);
+
+	if (!inParent) {
+		inParent = window_get_root_layer(gMainWindow);
+	}
+
+	layer_add_child(inParent, ioContainer->layer);
 
 	for (int i = 0; i < DigitCount; i++) {
 			// all the digits should be aligned at the top of the container, so
@@ -249,7 +260,6 @@ static void displayTime(
 
 	if (!inInit) {
 		animation_schedule((Animation*) gPusherAnimation);
-		animation_schedule((Animation*) gPusheeAnimation);
 	}
 }
 
@@ -264,15 +274,10 @@ static void onTick(
 
 void initAnimations(void)
 {
-	gPusherAnimation = property_animation_create_layer_frame(gPusherContainer.layer,
+	gPusherAnimation = property_animation_create_layer_frame(gMovingLayer,
 		&PusherStartFrame, &PusherEndFrame);
 	animation_set_duration((Animation*) gPusherAnimation, AnimationMS);
 	animation_set_curve((Animation*) gPusherAnimation, AnimationCurveLinear);
-
-	gPusheeAnimation = property_animation_create_layer_frame(gPusheeContainer.layer,
-		&PusherEndFrame, &PusheeEndFrame);
-	animation_set_duration((Animation*) gPusheeAnimation, AnimationMS);
-	animation_set_curve((Animation*) gPusheeAnimation, AnimationCurveLinear);
 }
 
 
@@ -287,9 +292,21 @@ void init(void)
 		gImages[i] = gbitmap_create_with_resource(ImageResourceIDs[i]);
 	}
 
-	createContainer(&gStaticContainer);
-	createContainer(&gPusherContainer);
-	createContainer(&gPusheeContainer);
+	GRect frame = (GRect) {
+		.origin = {
+			0,
+			DigitY
+		},
+		.size = {
+			LayerContainerW,
+			DigitH
+		}
+	};
+
+	gMovingLayer = layer_create(frame);
+	createContainer(&gPusheeContainer, &GRect(0, 0, LayerContainerW, DigitH), gMovingLayer);
+	createContainer(&gPusherContainer, &GRect(0, PusherStartY, LayerContainerW, DigitH), gMovingLayer);
+	createContainer(&gStaticContainer, &frame, NULL);
 
 	initAnimations();
 
@@ -316,9 +333,9 @@ void deinit(void)
 	destroyContainer(&gStaticContainer);
 	destroyContainer(&gPusherContainer);
 	destroyContainer(&gPusheeContainer);
+	layer_remove_from_parent(gMovingLayer);
 
 	property_animation_destroy(gPusherAnimation);
-	property_animation_destroy(gPusheeAnimation);
 
 	for (int i = 0; i < ImageCount; i++) {
 		gbitmap_destroy(gImages[i]);

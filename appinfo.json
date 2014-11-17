@@ -10,57 +10,57 @@
         "media": [
             {
                 "file": "images/0.png",
-                "name": "RESOURCE_ID_Img_0",
+                "name": "Img_0",
                 "type": "png"
             },
             {
                 "file": "images/1.png",
-                "name": "RESOURCE_ID_Img_1",
+                "name": "Img_1",
                 "type": "png"
             },
             {
                 "file": "images/2.png",
-                "name": "RESOURCE_ID_Img_2",
+                "name": "Img_2",
                 "type": "png"
             },
             {
                 "file": "images/3.png",
-                "name": "RESOURCE_ID_Img_3",
+                "name": "Img_3",
                 "type": "png"
             },
             {
                 "file": "images/4.png",
-                "name": "RESOURCE_ID_Img_4",
+                "name": "Img_4",
                 "type": "png"
             },
             {
                 "file": "images/5.png",
-                "name": "RESOURCE_ID_Img_5",
+                "name": "Img_5",
                 "type": "png"
             },
             {
                 "file": "images/6.png",
-                "name": "RESOURCE_ID_Img_6",
+                "name": "Img_6",
                 "type": "png"
             },
             {
                 "file": "images/7.png",
-                "name": "RESOURCE_ID_Img_7",
+                "name": "Img_7",
                 "type": "png"
             },
             {
                 "file": "images/8.png",
-                "name": "RESOURCE_ID_Img_8",
+                "name": "Img_8",
                 "type": "png"
             },
             {
                 "file": "images/9.png",
-                "name": "RESOURCE_ID_Img_9",
+                "name": "Img_9",
                 "type": "png"
             },
             {
                 "file": "images/colon.png",
-                "name": "RESOURCE_ID_Img_Colon",
+                "name": "Img_Colon",
                 "type": "png"
             }
         ]

@@ -33,17 +33,17 @@
 
 
 const int ImageResourceIDs[ImageCount] = {
-	Img_0,
-	Img_1,
-	Img_2,
-	Img_3,
-	Img_4,
-	Img_5,
-	Img_6,
-	Img_7,
-	Img_8,
-	Img_9,
-	Img_Colon
+	RESOURCE_ID_Img_0,
+	RESOURCE_ID_Img_1,
+	RESOURCE_ID_Img_2,
+	RESOURCE_ID_Img_3,
+	RESOURCE_ID_Img_4,
+	RESOURCE_ID_Img_5,
+	RESOURCE_ID_Img_6,
+	RESOURCE_ID_Img_7,
+	RESOURCE_ID_Img_8,
+	RESOURCE_ID_Img_9,
+	RESOURCE_ID_Img_Colon
 };
 const int TimeCharX[TimeCharCount] = {
 	4,
